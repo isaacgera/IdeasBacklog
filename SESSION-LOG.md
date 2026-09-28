@@ -282,13 +282,20 @@ Explored options for writing back to `Ideas.md` from a phone. A plain page can't
 - A single accent token can't serve as *text* in both themes: the darker `--accent-strong` reads on white (light mode) but fails as text on the dark bg (3.36:1). Fix: footer-brand and card `.open-hint` are now **theme-aware** — `--accent` in dark, `--accent-strong` in light — both pass ≥4.5:1. Buttons that use `--accent-strong` as a *background* with white text are fine (that pairing was the one originally checked).
 
 ### Status / backlog
-- `Ideas.md` **Capture Ideas** row = **In Progress** (code-complete, docs complete, Lighthouse clean). Per the backlog-sync rule, it flips to **`Built (Capture Ideas v1.0.0)`** only after Isaac's live phone-capture test confirms the GitHub commit chain works end-to-end.
+- **SHIPPED.** `Ideas.md` **Capture Ideas** row = **`Built (Capture Ideas v1.0.0)`** after Isaac's live phone test confirmed the full chain (set PIN → token → capture → commit lands in `Ideas.md` → card appears).
+- Live at the public `IdeasBacklog` repo on GitHub Pages: `https://isaacgera.github.io/IdeasBacklog/Ideas.html`.
 
-### Outstanding (the only thing left)
-1. Push to the public `IdeasBacklog` repo, enable GitHub Pages, create the fine-grained PAT (Contents: R/W, this repo only, expiry).
-2. **Live phone test:** open the Pages URL → set PIN → Settings → paste token → Add a throwaway idea → confirm the commit lands in `Ideas.md` and the card appears → delete the test row.
-3. On confirmation: set the row to `Built (Capture Ideas v1.0.0)`.
+### Shipping steps done
+1. Created public repo `IdeasBacklog` (Isaac added GitHub's MIT LICENSE at creation).
+2. Local `git init` + first commit; reconciled the remote's initial LICENSE commit via `merge --allow-unrelated-histories`, resolving the LICENSE conflict in favour of our version (correct `Isaac A. Gera` line). Pushed to `main`.
+   - Note: the Windows/cmd shell prepends `cd "...";` (PowerShell `;`) and breaks `cd`; ran all git via `git -C "<path>"` to sidestep it.
+3. Enabled GitHub Pages (branch `main`, root).
+4. Fine-grained PAT (Contents R/W, this repo only, expiry) created by Isaac; live capture test passed on mobile.
+
+### Post-ship fix (same session)
+- **Background scroll bleed:** modal open now locks page scroll — `body.modal-open { overflow:hidden }` toggled in the shared `openModal`/`closeModal` helpers (covers capture, overview, settings; modal content still scrolls internally). No app-version bump (Isaac's call); SW `CACHE_NAME` bumped `v1.0.1 → v1.0.2` so the fix reaches the installed PWA. Committed + pushed (`11d14d3`).
 
 ### Notes
-- No version bump elsewhere. The SW `CACHE_NAME` v1.0.1 is a cache-buster, not an app-version change (app stays v1.0.0).
-- Couldn't run live browser/GitHub-API tests here (no browser + Windows shell quirk); logic verified by inspection + Python simulation, visuals/scores verified by Isaac on Live Server.
+- App version stays **v1.0.0**. SW `CACHE_NAME` versions (v1.0.1 offline-gap fix, v1.0.2 scroll-lock) are cache-busters, not app-version changes.
+- Two family agents dogfooded before push (PWA Readiness Checker + Pre-Live Testing Agent); their findings were fixed and are recorded above.
+- Live browser/GitHub-API tests couldn't run in Kiro (no browser + shell quirk); logic verified by inspection + Python simulation, visuals/scores by Isaac on Live Server, and the end-to-end commit chain by Isaac's live mobile test.
