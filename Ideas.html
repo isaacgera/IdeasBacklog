@@ -57,6 +57,9 @@
     line-height: 1.5;
     -webkit-text-size-adjust: 100%;
   }
+  /* While a modal is open, lock the background so only the modal scrolls
+     (the overlay is fixed and .modal-body handles its own overflow). */
+  body.modal-open { overflow: hidden; }
 
   /* ---- Generic controls ---------------------------------------------- */
   button { font-family: inherit; }
@@ -772,6 +775,7 @@
     lastFocusedBeforeModal = document.activeElement;
     overlayEl.classList.add("open");
     if (appEl()) appEl().setAttribute("inert", "");
+    document.body.classList.add("modal-open"); // lock background scroll
     // Focus after paint so the element is actually focusable.
     requestAnimationFrame(() => { (focusTarget || overlayEl.querySelector(FOCUSABLE) || overlayEl).focus(); });
   }
@@ -780,6 +784,7 @@
   function closeModal(overlayEl) {
     overlayEl.classList.remove("open");
     if (appEl()) appEl().removeAttribute("inert");
+    document.body.classList.remove("modal-open"); // restore background scroll
     if (lastFocusedBeforeModal && typeof lastFocusedBeforeModal.focus === "function") {
       lastFocusedBeforeModal.focus();
     }
