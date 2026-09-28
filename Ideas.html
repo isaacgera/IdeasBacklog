@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="description" content="Capture Ideas — a mobile-first PWA to browse the app ideas backlog by complexity, status and category, and capture new ideas on the go, syncing to Ideas.md." />
+<meta name="theme-color" content="#0f1420" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<title>Capture Ideas</title>
+<style>
+  :root {
+    --bg: #0f1420;
+    --card: #1a2130;
+    --card-hover: #212a3d;
+    --text: #e6e9ef;
+    --muted: #9aa4b8;
+    --border: #2a3448;
+    --simple: #3fb98c;
+    --medium: #e0a94a;
+    --complex: #e0685a;
+    --accent: #5b8def;
+    --accent-strong: #3f63c8;   /* darker accent — white text on it passes 4.5:1 */
+    --accent-tag: #9db8f5;      /* lighter accent — version-tag text on dark cards passes */
+    --danger: #e0685a;
+    --ok: #3fb98c;
+    --radius: 10px;
+    --tap: 44px; /* minimum comfortable touch target */
+    --theme-color: #0f1420; /* mirrors <meta name=theme-color>; JS updates it */
+  }
+  /* Light theme: same token names, lighter values. Applied via
+     <html data-theme="light">. Contrast checked for text on surfaces. */
+  html[data-theme="light"] {
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --card-hover: #eef2fa;
+    --text: #1a2130;
+    --muted: #5c6780;
+    --border: #d9dfec;
+    --simple: #2f9c74;
+    --medium: #c8892f;
+    --complex: #cf5546;
+    --accent: #3f6fd6;
+    --accent-strong: #2f57b5;   /* white text passes on this in light mode too */
+    --accent-tag: #2f57b5;      /* version-tag text on white cards needs a darker blue */
+    --danger: #cf5546;
+    --ok: #2f9c74;
+    --theme-color: #f4f6fb;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* ---- Generic controls ---------------------------------------------- */
+  button { font-family: inherit; }
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: var(--tap);
+    padding: 10px 18px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.12s;
+  }
+  .btn:hover { background: var(--card-hover); border-color: var(--accent); }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .btn.primary { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; font-weight: 600; }
+  .btn.primary:hover { background: var(--accent); border-color: var(--accent); }
+  .btn.primary:disabled { opacity: 0.5; cursor: default; }
+  .btn.ghost { background: transparent; }
+
+  input, select, textarea {
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px 12px;
+    width: 100%;
+    transition: border-color 0.15s, box-shadow 0.15s;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(91,141,239,0.18);
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  select { appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa4b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px;
+  }
+
+  /* ---- Gate (PIN landing screen) ------------------------------------- */
+  .gate {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: radial-gradient(1200px 600px at 50% -10%, #16203a 0%, var(--bg) 60%);
+    z-index: 100;
+  }
+  .gate-card {
+    width: min(380px, 100%);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+    text-align: center;
+  }
+  .gate-logo {
+    width: 54px; height: 54px;
+    margin: 0 auto 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent), #3fb98c);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+  }
+  .gate-card h1 { margin: 0 0 4px; font-size: 1.3rem; }
+  .gate-card .sub { color: var(--muted); font-size: 0.88rem; margin: 0 0 20px; }
+  .pin-input {
+    text-align: center;
+    letter-spacing: 0.5em;
+    font-size: 1.4rem;
+    font-variant-numeric: tabular-nums;
+    padding-left: 0.5em; /* balance the letter-spacing visually */
+  }
+  .gate-msg { min-height: 20px; font-size: 0.82rem; margin: 10px 0 0; }
+  .gate-msg.err { color: var(--danger); }
+  .gate-msg.ok { color: var(--ok); }
+  .gate-actions { margin-top: 18px; display: flex; flex-direction: column; gap: 10px; }
+  .gate-hint { color: var(--muted); font-size: 0.75rem; margin-top: 16px; line-height: 1.5; }
+  .link-btn {
+    background: none; border: none; color: var(--accent);
+    font-size: 0.8rem; cursor: pointer; text-decoration: underline;
+    text-underline-offset: 3px; padding: 6px;
+  }
+
+  /* ---- App shell ------------------------------------------------------ */
+  #app { display: none; }
+  #app.ready { display: block; }
+
+  header {
+    padding: max(20px, env(safe-area-inset-top)) 20px 12px;
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .head-text { flex: 1; min-width: 0; }
+  h1.app-title { margin: 0 0 4px; font-size: 1.5rem; }
+  .subtitle { color: var(--muted); margin: 0; font-size: 0.9rem; }
+  .head-actions { display: flex; gap: 8px; flex-shrink: 0; }
+  .icon-btn {
+    width: var(--tap); height: var(--tap);
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--accent); background: var(--card-hover); }
+  .icon-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .icon-btn svg { width: 20px; height: 20px; }
+
+  .toolbar {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 8px 20px 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 16px 24px;
+  }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field > .label {
+    color: var(--muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .segment {
+    display: inline-flex;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 3px;
+    gap: 2px;
+    flex-wrap: wrap;
+  }
+  .segment button {
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    border-radius: 7px;
+    padding: 8px 14px;
+    min-height: 38px;
+    font-size: 0.82rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+  }
+  .segment button:hover { color: var(--text); }
+  .segment button.active {
+    background: var(--accent-strong);
+    color: #fff;
+    box-shadow: 0 1px 4px rgba(91,141,239,0.35);
+  }
+
+  .search-wrap { position: relative; }
+  input.search {
+    padding-left: 34px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239aa4b8' stroke-width='2.2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: left 11px center;
+    min-width: 220px;
+  }
+  input.search::placeholder { color: var(--muted); }
+
+  .toolbar .meta {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    align-self: flex-end;
+    padding-bottom: 3px;
+  }
+  .count { color: var(--muted); font-size: 0.8rem; }
+  .count strong { color: var(--text); }
+  button.clear {
+    background: transparent; border: none; color: var(--muted);
+    font-size: 0.8rem; cursor: pointer; padding: 8px 2px;
+    text-decoration: underline; text-underline-offset: 3px;
+    min-height: var(--tap);
+  }
+  button.clear:hover { color: var(--text); }
+  button.clear:disabled { opacity: 0.35; cursor: default; text-decoration: none; }
+
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px 20px 96px;
+  }
+  h2.section-title {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 22px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dot.simple { background: var(--simple); }
+  .dot.medium { background: var(--medium); }
+  .dot.complex { background: var(--complex); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    transition: transform 0.12s, background 0.12s;
+    cursor: pointer;
+  }
+  .card:hover { background: var(--card-hover); transform: translateY(-2px); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .card h3 { margin: 0 0 6px; font-size: 1rem; }
+  .card p { margin: 0 0 12px; color: var(--muted); font-size: 0.85rem; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tag {
+    font-size: 0.72rem;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .tag.simple { background: rgba(63,185,140,0.15); border-color: var(--simple); }
+  .tag.medium { background: rgba(224,169,74,0.15); border-color: var(--medium); }
+  .tag.complex { background: rgba(224,104,90,0.15); border-color: var(--complex); }
+  .tag.status-idea { color: var(--muted); }
+  .tag.status-in-progress { background: rgba(91,141,239,0.18); border-color: var(--accent); }
+  .tag.status-built { background: rgba(63,185,140,0.18); border-color: var(--simple); }
+  .tag.status-parked { opacity: 0.7; }
+  .tag.category { background: rgba(255,255,255,0.05); }
+  .tag.version {
+    background: rgba(91,141,239,0.12);
+    border-color: var(--accent);
+    color: var(--accent-tag);
+    font-variant-numeric: tabular-nums;
+  }
+  /* Text on the card surface — theme-aware for contrast (see footer-brand note). */
+  .card .open-hint {
+    color: var(--accent);
+    font-size: 0.72rem;
+    margin-top: 8px;
+    opacity: 0;
+    transition: opacity 0.12s;
+  }
+  html[data-theme="light"] .card .open-hint { color: var(--accent-strong); }
+  .card:hover .open-hint, .card:focus-visible .open-hint { opacity: 1; }
+
+  /* ---- "Add idea" pill (in the header) ------------------------------- */
+  .add-pill {
+    height: var(--tap);
+    padding: 0 18px 0 14px;
+    border-radius: 999px;
+    border: none;
+    background: var(--accent-strong);
+    color: #fff;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(91,141,239,0.35);
+    transition: transform 0.12s, background 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+  }
+  .add-pill:hover { background: var(--accent); box-shadow: 0 6px 18px rgba(91,141,239,0.45); }
+  .add-pill:active { transform: translateY(1px) scale(0.99); }
+  .add-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  .add-pill svg { width: 18px; height: 18px; }
+
+  /* ---- Modals (overview + capture + settings) ------------------------ */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(6,9,16,0.72);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 50;
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    width: min(680px, 100%);
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal.wide { width: min(860px, 100%); }
+  .modal-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-head h2 { margin: 0; font-size: 1.1rem; flex: 1; }
+  .modal-close {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 8px;
+    width: 36px; height: 36px;
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .modal-close:hover { color: var(--text); border-color: var(--accent); }
+  .modal-body { padding: 0; overflow: auto; }
+  .modal-body iframe { width: 100%; height: 70vh; border: 0; display: block; background: var(--bg); }
+
+  .modal-fallback { padding: 22px 24px; color: var(--text); }
+  .modal-fallback h3 { margin: 0 0 6px; color: var(--accent); font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+  .modal-fallback p { margin: 0 0 18px; font-size: 0.95rem; line-height: 1.6; }
+  .modal-fallback .note { color: var(--muted); font-size: 0.82rem; font-style: italic; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin-bottom: 0; }
+
+  /* Form layout inside modals */
+  .form { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+  .form .row { display: flex; flex-direction: column; gap: 6px; }
+  .form .row label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+  .form .row .hint { font-size: 0.76rem; color: var(--muted); text-transform: none; letter-spacing: 0; }
+  .form .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-actions { display: flex; gap: 10px; padding: 0 18px 18px; }
+  .form-actions .btn { flex: 1; }
+  .form-msg { padding: 0 18px; min-height: 20px; font-size: 0.84rem; }
+  .form-msg.err { color: var(--danger); }
+  .form-msg.ok { color: var(--ok); }
+  .seg-choice { display: flex; gap: 8px; flex-wrap: wrap; }
+  .seg-choice button {
+    flex: 1; min-width: 90px; min-height: var(--tap);
+    background: var(--card); border: 1px solid var(--border); color: var(--muted);
+    border-radius: var(--radius); cursor: pointer; font-size: 0.85rem;
+    transition: all 0.15s;
+  }
+  .seg-choice button.active { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; font-weight: 600; }
+
+  .settings-note {
+    background: rgba(224,169,74,0.1);
+    border: 1px solid var(--medium);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    font-size: 0.82rem;
+    color: var(--text);
+    line-height: 1.55;
+    margin: 0 18px;
+  }
+  .settings-note code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+  .empty { color: var(--muted); font-size: 0.9rem; padding: 20px 0; }
+  .error {
+    background: rgba(224,104,90,0.12);
+    border: 1px solid var(--complex);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    color: var(--text);
+    font-size: 0.9rem;
+  }
+  .error code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; }
+
+  /* ---- App footer (branding) ----------------------------------------- */
+  .app-footer {
+    max-width: 1100px; margin: 0 auto;
+    padding: 20px 20px calc(24px + env(safe-area-inset-bottom));
+    border-top: 1px solid var(--border);
+    text-align: center; color: var(--muted); font-size: 0.72rem;
+    line-height: 1.6; display: flex; flex-direction: column; gap: 0.1rem;
+  }
+  /* Footer brand is coloured TEXT on the page background, so it needs a
+     theme-aware blue: the lighter --accent passes on the dark bg (5.7:1),
+     while light mode needs the darker --accent-strong (6.16:1). A single
+     fixed token fails one theme, so we flip it below. */
+  .app-footer-brand { color: var(--accent); font-weight: 600; letter-spacing: 0.2px; }
+  html[data-theme="light"] .app-footer-brand { color: var(--accent-strong); }
+  /* No opacity here — a translucent muted tone drops below 4.5:1 in light mode.
+     The --muted token is already the quiet colour and passes on its own. */
+  .app-footer-copy { color: var(--muted); }
+
+  /* Toast for background sync / offline queue feedback */
+  .toast {
+    position: fixed;
+    left: 50%; transform: translateX(-50%);
+    bottom: max(24px, env(safe-area-inset-bottom));
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 10px 18px;
+    font-size: 0.84rem;
+    color: var(--text);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 60;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.ok { border-color: var(--ok); }
+  .toast.err { border-color: var(--danger); }
+
+  /* ================= RESPONSIVE (phone-first tweaks) ================= */
+  @media (max-width: 720px) {
+    header { flex-direction: row; align-items: center; padding-top: max(16px, env(safe-area-inset-top)); }
+    h1.app-title { font-size: 1.25rem; }
+    .subtitle { font-size: 0.82rem; }
+
+    .toolbar { gap: 12px; padding: 8px 16px 0; }
+    .field { width: 100%; }             /* each control stacks full-width */
+    .search-wrap, input.search { width: 100%; min-width: 0; }
+    .segment { width: 100%; }
+    .segment button { flex: 1; text-align: center; }
+    .toolbar .meta { margin-left: 0; width: 100%; justify-content: space-between; }
+
+    main { padding: 12px 16px 40px; }
+    .grid { grid-template-columns: 1fr; }   /* single column of cards */
+    .card .open-hint { opacity: 1; }        /* no hover on touch, always show */
+
+    .form .two { grid-template-columns: 1fr; }  /* stack form fields */
+    .modal { max-height: 94vh; }
+  }
+
+  /* Very narrow: collapse the Add-idea pill to an icon so the header
+     (title + 3 actions) never crowds or wraps awkwardly. */
+  @media (max-width: 460px) {
+    .add-pill { padding: 0; width: var(--tap); justify-content: center; }
+    .add-pill span { display: none; }
+    .add-pill svg { width: 20px; height: 20px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; }
+    .card:hover { transform: none; }
+  }
+
+  @media print { .add-pill, .head-actions, .app-footer, .toast { display: none !important; } }
+</style>
+</head>
+<body>
+
+  <!-- ============ PIN GATE (landing) ============ -->
+  <div class="gate" id="gate">
+    <div class="gate-card">
+      <div class="gate-logo" aria-hidden="true">&#128161;</div>
+      <h1>Capture Ideas</h1>
+      <p class="sub" id="gate-sub">Enter your PIN to continue</p>
+      <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+             class="pin-input" id="pin-input" autocomplete="off"
+             aria-label="PIN" placeholder="&bull;&bull;&bull;&bull;" />
+      <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+             class="pin-input" id="pin-confirm" autocomplete="off"
+             aria-label="Confirm PIN" placeholder="Confirm PIN" style="display:none;margin-top:10px;" />
+      <p class="gate-msg" id="gate-msg" role="status" aria-live="polite"></p>
+      <div class="gate-actions">
+        <button class="btn primary" id="gate-go">Unlock</button>
+      </div>
+      <p class="gate-hint" id="gate-hint"></p>
+      <button class="link-btn" id="gate-reset" style="display:none;">Forgot PIN? Reset</button>
+    </div>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div id="app">
+    <header>
+      <div class="head-text">
+        <h1 class="app-title">Capture Ideas</h1>
+        <p class="subtitle">Capture new Ideas / Browse existing ones.</p>
+      </div>
+      <div class="head-actions">
+        <button class="add-pill" id="add-pill" aria-label="Add a new idea" title="Add a new idea">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Add idea</span>
+        </button>
+        <button class="icon-btn" id="theme-toggle" aria-label="Toggle light/dark theme" aria-pressed="false" title="Toggle theme">
+          <svg class="ico-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <svg class="ico-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </button>
+        <button class="icon-btn" id="open-settings" aria-label="Settings" title="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="toolbar">
+      <div class="field">
+        <label class="label" for="search">Search</label>
+        <div class="search-wrap">
+          <input type="search" class="search" id="search" placeholder="Search ideas, category, status&hellip;" autocomplete="off" />
+        </div>
+      </div>
+      <div class="field">
+        <span class="label" id="complexity-label">Complexity</span>
+        <div class="segment" data-type="complexity" role="group" aria-labelledby="complexity-label">
+          <button class="active" data-value="all" aria-pressed="true">All</button>
+          <button data-value="simple" aria-pressed="false">Simple</button>
+          <button data-value="medium" aria-pressed="false">Medium</button>
+          <button data-value="complex" aria-pressed="false">Complex</button>
+        </div>
+      </div>
+      <div class="field">
+        <span class="label" id="status-label">Status</span>
+        <div class="segment" data-type="status" role="group" aria-labelledby="status-label">
+          <button class="active" data-value="all" aria-pressed="true">All</button>
+          <button data-value="Idea" aria-pressed="false">Idea</button>
+          <button data-value="In Progress" aria-pressed="false">In Progress</button>
+          <button data-value="Built" aria-pressed="false">Built</button>
+          <button data-value="Parked" aria-pressed="false">Parked</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="label" for="category-select">Category</label>
+        <select class="category-select" id="category-select">
+          <option value="all">All categories</option>
+        </select>
+      </div>
+      <div class="meta">
+        <span class="count" id="count"></span>
+        <button class="clear" id="clear" disabled>Clear filters</button>
+      </div>
+    </div>
+
+    <main id="board"></main>
+
+    <footer class="app-footer">
+      <span class="app-footer-brand">Powered by Forj&eacute;</span>
+      <span class="app-footer-copy">&copy; 2026 Isaac A Gera. All rights reserved.</span>
+    </footer>
+  </div>
+
+  <!-- Overview modal -->
+  <div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal wide">
+      <div class="modal-head">
+        <h2 id="modal-title">Idea overview</h2>
+        <button class="modal-close" id="modal-close" aria-label="Close overview">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Capture modal -->
+  <div class="overlay" id="capture-overlay" role="dialog" aria-modal="true" aria-labelledby="capture-title">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="capture-title">New idea</h2>
+        <button class="modal-close" id="capture-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form">
+          <div class="row">
+            <label for="f-name">Idea name</label>
+            <input type="text" id="f-name" placeholder="e.g. Plant Care Reminder" autocomplete="off" />
+          </div>
+          <div class="two">
+            <div class="row">
+              <label id="f-complexity-label">Complexity</label>
+              <div class="seg-choice" id="f-complexity" role="group" aria-labelledby="f-complexity-label">
+                <button type="button" data-value="simple" class="active" aria-pressed="true">Simple</button>
+                <button type="button" data-value="medium" aria-pressed="false">Medium</button>
+                <button type="button" data-value="complex" aria-pressed="false">Complex</button>
+              </div>
+            </div>
+            <div class="row">
+              <label for="f-category">Category</label>
+              <select id="f-category"></select>
+            </div>
+          </div>
+          <div class="row">
+            <label for="f-desc">Description</label>
+            <textarea id="f-desc" placeholder="What is it, in a sentence or two?"></textarea>
+          </div>
+          <div class="row">
+            <label for="f-scope">Scope (v1) <span class="hint">optional</span></label>
+            <textarea id="f-scope" placeholder="What would a first version include?"></textarea>
+          </div>
+          <div class="row">
+            <label for="f-status">Status</label>
+            <select id="f-status">
+              <option value="Idea" selected>Idea</option>
+              <option value="In Progress">In Progress</option>
+              <option value="Built">Built</option>
+              <option value="Parked">Parked</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <p class="form-msg" id="capture-msg" role="status" aria-live="polite"></p>
+      <div class="form-actions">
+        <button class="btn ghost" id="capture-cancel" type="button">Cancel</button>
+        <button class="btn primary" id="capture-save" type="button">Save to backlog</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div class="overlay" id="settings-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="modal">
+      <div class="modal-head">
+        <h2 id="settings-title">Settings</h2>
+        <button class="modal-close" id="settings-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form">
+          <p class="settings-note">
+            To <strong>save ideas from this device</strong>, paste a GitHub <strong>fine-grained token</strong>
+            scoped to only the <code>IdeasBacklog</code> repo with <strong>Contents: Read &amp; write</strong>.
+            It is stored only on this device and never committed. Browsing works without a token.
+          </p>
+          <div class="two">
+            <div class="row">
+              <label for="s-owner">GitHub owner</label>
+              <input type="text" id="s-owner" placeholder="isaacgera" autocomplete="off" />
+            </div>
+            <div class="row">
+              <label for="s-repo">Repository</label>
+              <input type="text" id="s-repo" placeholder="IdeasBacklog" autocomplete="off" />
+            </div>
+          </div>
+          <div class="row">
+            <label for="s-branch">Branch</label>
+            <input type="text" id="s-branch" placeholder="main" autocomplete="off" />
+          </div>
+          <div class="row">
+            <label for="s-token">GitHub token <span class="hint">(write access; stays on this device)</span></label>
+            <input type="password" id="s-token" placeholder="github_pat_&hellip;" autocomplete="off" />
+          </div>
+          <div class="row">
+            <label>Change PIN</label>
+            <button class="btn ghost" id="s-change-pin" type="button">Set a new PIN&hellip;</button>
+          </div>
+        </div>
+      </div>
+      <p class="form-msg" id="settings-msg" role="status" aria-live="polite"></p>
+      <div class="form-actions">
+        <button class="btn ghost" id="settings-clear-token" type="button">Remove token</button>
+        <button class="btn primary" id="settings-save" type="button">Save settings</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  "use strict";
+
+  // ---- Storage keys (namespaced so this app never collides with others) --
+  const K = {
+    pinHash: "captureideas_pin_hash",
+    owner: "captureideas_owner",
+    repo: "captureideas_repo",
+    branch: "captureideas_branch",
+    token: "captureideas_token",
+    queue: "captureideas_queue",     // offline capture queue
+    unlocked: "captureideas_unlocked", // sessionStorage flag
+    theme: "captureideas_theme"      // "light" | "dark"
+  };
+  const DEFAULTS = { owner: "isaacgera", repo: "IdeasBacklog", branch: "main" };
+  const FILE_PATH = "Ideas.md";
+
+  const tiers = [
+    { key: "simple", label: "Simple", note: "Single page, no backend. A session or two." },
+    { key: "medium", label: "Medium", note: "Multiple views, local persistence, maybe a PWA." },
+    { key: "complex", label: "Complex", note: "Richer data model, APIs, offline sync, or multi-role logic." }
+  ];
+
+  let ideas = [];
+  let filters = { complexity: "all", status: "all", category: "all", search: "" };
+
+  // ---- Small helpers ------------------------------------------------------
+  const $ = id => document.getElementById(id);
+  function cfg(key) { return localStorage.getItem(key) || DEFAULTS[key.split("_")[1]] || ""; }
+  function statusClass(status) { return "status-" + status.toLowerCase().replace(/\s+/g, "-"); }
+
+  // ---- Modal focus management (trap + return + background inert) ----------
+  // Shared by all three dialogs (overview, capture, settings) so keyboard and
+  // screen-reader users stay inside an open dialog and land back on the trigger
+  // when it closes. Fixes audit blockers B1 (focus trap) and B2 (focus return).
+  const appEl = () => $("app");
+  const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  let lastFocusedBeforeModal = null;
+
+  function focusablesIn(container) {
+    return Array.from(container.querySelectorAll(FOCUSABLE))
+      .filter(el => el.offsetParent !== null || el === document.activeElement);
+  }
+
+  // Open a modal overlay: remember the trigger, show it, make the background
+  // inert (hidden from tab order + SR), and move focus to a sensible first stop.
+  function openModal(overlayEl, focusTarget) {
+    lastFocusedBeforeModal = document.activeElement;
+    overlayEl.classList.add("open");
+    if (appEl()) appEl().setAttribute("inert", "");
+    // Focus after paint so the element is actually focusable.
+    requestAnimationFrame(() => { (focusTarget || overlayEl.querySelector(FOCUSABLE) || overlayEl).focus(); });
+  }
+
+  // Close a modal overlay: hide it, lift inert, and return focus to the trigger.
+  function closeModal(overlayEl) {
+    overlayEl.classList.remove("open");
+    if (appEl()) appEl().removeAttribute("inert");
+    if (lastFocusedBeforeModal && typeof lastFocusedBeforeModal.focus === "function") {
+      lastFocusedBeforeModal.focus();
+    }
+    lastFocusedBeforeModal = null;
+  }
+
+  // Keep Tab within the currently-open dialog.
+  function trapTab(overlayEl, e) {
+    if (e.key !== "Tab") return;
+    const items = focusablesIn(overlayEl);
+    if (items.length === 0) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+
+  async function sha256Hex(str) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  let toastTimer = null;
+  function toast(msg, kind) {
+    const t = $("toast");
+    t.textContent = msg;
+    t.className = "toast show" + (kind ? " " + kind : "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { t.className = "toast"; }, 3200);
+  }
+
+  // ---- base64 <-> UTF-8 (GitHub content is base64) ------------------------
+  function b64ToUtf8(b64) {
+    return new TextDecoder().decode(Uint8Array.from(atob(b64), c => c.charCodeAt(0)));
+  }
+  function utf8ToB64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = "";
+    bytes.forEach(b => bin += String.fromCharCode(b));
+    return btoa(bin);
+  }
+
+  // ======================================================================
+  //  PIN GATE
+  // ======================================================================
+  const gate = $("gate"), app = $("app");
+  const pinInput = $("pin-input"), pinConfirm = $("pin-confirm");
+  const gateMsg = $("gate-msg"), gateSub = $("gate-sub"), gateHint = $("gate-hint");
+  const gateGo = $("gate-go"), gateReset = $("gate-reset");
+  let settingMode = false; // true when creating/changing a PIN
+
+  function gateSetMsg(text, kind) {
+    gateMsg.textContent = text || "";
+    gateMsg.className = "gate-msg" + (kind ? " " + kind : "");
+  }
+
+  function showGateForCreate(sub) {
+    settingMode = true;
+    gateSub.textContent = sub || "Create a PIN to protect this app";
+    pinConfirm.style.display = "block";
+    gateGo.textContent = "Set PIN";
+    gateHint.textContent = "Choose a 4-6 digit PIN. It is stored only on this device (as a one-way hash), never in the code.";
+    gateReset.style.display = "none";
+    pinInput.value = ""; pinConfirm.value = "";
+    gate.style.display = "flex"; app.classList.remove("ready");
+    pinInput.focus();
+  }
+
+  function showGateForUnlock() {
+    settingMode = false;
+    gateSub.textContent = "Enter your PIN to continue";
+    pinConfirm.style.display = "none";
+    gateGo.textContent = "Unlock";
+    gateHint.textContent = "";
+    gateReset.style.display = "inline";
+    pinInput.value = "";
+    gate.style.display = "flex"; app.classList.remove("ready");
+    pinInput.focus();
+  }
+
+  function enterApp() {
+    sessionStorage.setItem(K.unlocked, "1");
+    gate.style.display = "none";
+    app.classList.add("ready");
+    gateSetMsg("");
+  }
+
+  async function handleGate() {
+    const pin = pinInput.value.trim();
+    if (!/^\d{4,6}$/.test(pin)) { gateSetMsg("PIN must be 4-6 digits.", "err"); return; }
+
+    if (settingMode) {
+      const confirmPin = pinConfirm.value.trim();
+      if (pin !== confirmPin) { gateSetMsg("PINs don't match. Try again.", "err"); return; }
+      localStorage.setItem(K.pinHash, await sha256Hex(pin));
+      gateSetMsg("PIN set.", "ok");
+      enterApp();
+    } else {
+      const stored = localStorage.getItem(K.pinHash);
+      if ((await sha256Hex(pin)) === stored) {
+        enterApp();
+      } else {
+        gateSetMsg("Incorrect PIN.", "err");
+        pinInput.value = ""; pinInput.focus();
+      }
+    }
+  }
+
+  gateGo.addEventListener("click", handleGate);
+  pinInput.addEventListener("keydown", e => { if (e.key === "Enter") { if (settingMode) pinConfirm.focus(); else handleGate(); } });
+  pinConfirm.addEventListener("keydown", e => { if (e.key === "Enter") handleGate(); });
+  gateReset.addEventListener("click", () => {
+    if (confirm("Reset the PIN? You'll create a new one. (This does not affect your ideas — they live in the repo.)")) {
+      localStorage.removeItem(K.pinHash);
+      showGateForCreate("Create a new PIN");
+    }
+  });
+
+  function initGate() {
+    const hasPin = !!localStorage.getItem(K.pinHash);
+    if (!hasPin) { showGateForCreate(); return; }
+    if (sessionStorage.getItem(K.unlocked) === "1") { enterApp(); return; }
+    showGateForUnlock();
+  }
+
+  // ======================================================================
+  //  BOARD (parse Ideas.md + render) — read side, no token needed
+  // ======================================================================
+  function parseMarkdown(md) {
+    const lines = md.split(/\r?\n/);
+    const result = [];
+    let currentTier = null;
+
+    for (const raw of lines) {
+      const line = raw.trim();
+      const heading = line.match(/^##\s+(.+)$/);
+      if (heading) {
+        const name = heading[1].trim().toLowerCase();
+        currentTier = tiers.find(t => t.key === name) ? name : null;
+        continue;
+      }
+      if (!currentTier) continue;
+      if (!line.startsWith("|")) continue;
+
+      const cells = line.split("|").slice(1, -1).map(c => c.trim());
+      if (cells.length < 5) continue;
+      if (/^idea$/i.test(cells[0])) continue;
+      if (/^-{2,}$/.test(cells[0].replace(/\s/g, ""))) continue;
+
+      const rawStatus = cells[4];
+      const verMatch = rawStatus.match(/^(.*?)\s*\(([^)]+)\)\s*$/);
+      const status = verMatch ? verMatch[1].trim() : rawStatus;
+      const version = verMatch ? verMatch[2].trim() : "";
+
+      let desc = cells[2];
+      let overrideOverview = "";
+      const linkMatch = desc.match(/\[overview\]\((.+)\)\s*$/i);
+      if (linkMatch) {
+        overrideOverview = linkMatch[1].trim();
+        desc = desc.replace(/\[overview\]\(.+\)\s*$/i, "").trim();
+      }
+
+      result.push({
+        name: cells[0], category: cells[1], desc: desc,
+        scope: cells[3] || "", status: status, version: version,
+        complexity: currentTier, overrideOverview: overrideOverview
+      });
+    }
+    return result;
+  }
+
+  function buildCategoryOptions() {
+    const select = $("category-select");
+    // keep existing categories from data, plus a stable fallback set for capture
+    const cats = [...new Set(ideas.map(i => i.category).filter(Boolean))].sort();
+    cats.forEach(cat => {
+      const opt = document.createElement("option");
+      opt.value = cat; opt.textContent = cat;
+      select.appendChild(opt);
+    });
+    // capture form category list
+    const fcat = $("f-category");
+    const baseCats = ["Finance","Productivity","Health","Home","Learning","Utility","Work","AI/Agents","Devotional"];
+    const allCats = [...new Set([...baseCats, ...cats])].sort();
+    allCats.forEach(cat => {
+      const opt = document.createElement("option");
+      opt.value = cat; opt.textContent = cat;
+      fcat.appendChild(opt);
+    });
+    fcat.value = "Utility";
+  }
+
+  function matches(i) {
+    if (filters.complexity !== "all" && i.complexity !== filters.complexity) return false;
+    if (filters.status !== "all" && i.status !== filters.status) return false;
+    if (filters.category !== "all" && i.category !== filters.category) return false;
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      const hay = [i.name, i.category, i.desc, i.scope, i.status, i.version].filter(Boolean).join(" ").toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }
+
+  function updateMeta() {
+    const shown = ideas.filter(matches).length;
+    $("count").innerHTML = "Showing <strong>" + shown + "</strong> of " + ideas.length;
+    const active = filters.complexity !== "all" || filters.status !== "all" || filters.category !== "all" || filters.search !== "";
+    $("clear").disabled = !active;
+  }
+
+  function render() {
+    const board = $("board");
+    board.innerHTML = "";
+    let anyShown = false;
+    updateMeta();
+
+    tiers.forEach(tier => {
+      if (filters.complexity !== "all" && filters.complexity !== tier.key) return;
+      const items = ideas.filter(i => i.complexity === tier.key && matches(i));
+      if (items.length === 0) return;
+      anyShown = true;
+
+      const title = document.createElement("h2");
+      title.className = "section-title";
+      title.innerHTML = '<span class="dot ' + tier.key + '"></span>' + tier.label +
+        ' <span style="color:var(--muted);font-weight:400;font-size:0.8rem;">&mdash; ' + tier.note + '</span>';
+      board.appendChild(title);
+
+      const grid = document.createElement("div");
+      grid.className = "grid";
+      items.forEach(i => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.tabIndex = 0;
+        card.setAttribute("role", "button");
+        card.setAttribute("aria-label", "Open overview for " + i.name);
+        const versionTag = i.version ? '<span class="tag version"></span>' : '';
+        card.innerHTML =
+          '<h3></h3><p></p>' +
+          '<div class="tags">' +
+            '<span class="tag ' + i.complexity + '">' + tier.label + '</span>' +
+            '<span class="tag category"></span>' +
+            '<span class="tag status ' + statusClass(i.status) + '"></span>' +
+            versionTag +
+          '</div><div class="open-hint">Open overview &rarr;</div>';
+        card.querySelector("h3").textContent = i.name;
+        card.querySelector("p").textContent = i.desc;
+        card.querySelector(".tag.category").textContent = i.category || "Uncategorised";
+        card.querySelector(".tag.status").textContent = i.status;
+        if (i.version) card.querySelector(".tag.version").textContent = i.version;
+        card.addEventListener("click", () => openOverview(i));
+        card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openOverview(i); } });
+        grid.appendChild(card);
+      });
+      board.appendChild(grid);
+    });
+
+    if (!anyShown) board.innerHTML = '<p class="empty">No ideas match these filters.</p>';
+  }
+
+  function showError() {
+    $("board").innerHTML =
+      '<div class="error"><strong>Couldn\'t load Ideas.md.</strong><br>' +
+      'This page reads the markdown file over HTTP. Open it via a local server or GitHub Pages ' +
+      '(not by double-clicking the file).</div>';
+  }
+
+  // ---- Overview modal -----------------------------------------------------
+  function folderSeg(s) { return (s || "").replace(/[\\/:*?"<>|]/g, "-").replace(/\s{2,}/g, " ").trim(); }
+  function overviewPath(i) {
+    if (i.overrideOverview) return i.overrideOverview;
+    return "../" + folderSeg(i.category) + "/" + folderSeg(i.name) + "/overview.html";
+  }
+  const overlay = $("overlay"), modalBody = $("modal-body");
+  function openOverview(i) {
+    const path = overviewPath(i);
+    $("modal-title").textContent = i.name;
+    modalBody.innerHTML = "";
+    fetch(path)
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(() => {
+        const frame = document.createElement("iframe");
+        frame.src = path; frame.title = i.name + " overview";
+        modalBody.appendChild(frame);
+      })
+      .catch(() => {
+        const fb = document.createElement("div");
+        fb.className = "modal-fallback";
+        const scopeBlock = i.scope ? '<h3>Scope (v1)</h3><p class="scope-p"></p>' : '';
+        fb.innerHTML = '<h3>Description</h3><p class="desc-p"></p>' + scopeBlock +
+          '<p class="note">A full overview page hasn\'t been created for this idea yet. Showing the backlog summary for now.</p>';
+        fb.querySelector(".desc-p").textContent = i.desc || "(no description)";
+        if (i.scope) fb.querySelector(".scope-p").textContent = i.scope;
+        modalBody.appendChild(fb);
+      });
+    openModal(overlay, $("modal-close"));
+  }
+  function closeOverview() { closeModal(overlay); modalBody.innerHTML = ""; }
+  $("modal-close").addEventListener("click", closeOverview);
+  overlay.addEventListener("click", e => { if (e.target === overlay) closeOverview(); });
+  overlay.addEventListener("keydown", e => trapTab(overlay, e));
+
+  // ---- Filter wiring ------------------------------------------------------
+  $("search").addEventListener("input", e => { filters.search = e.target.value.trim(); render(); });
+  document.querySelectorAll(".segment").forEach(segment => {
+    const type = segment.dataset.type;
+    segment.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        filters[type] = btn.dataset.value;
+        segment.querySelectorAll("button").forEach(b => {
+          const on = b === btn;
+          b.classList.toggle("active", on);
+          b.setAttribute("aria-pressed", String(on));
+        });
+        render();
+      });
+    });
+  });
+  $("category-select").addEventListener("change", e => { filters.category = e.target.value; render(); });
+  $("clear").addEventListener("click", () => {
+    filters = { complexity: "all", status: "all", category: "all", search: "" };
+    document.querySelectorAll(".segment").forEach(segment => {
+      segment.querySelectorAll("button").forEach(b => {
+        const on = b.dataset.value === "all";
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-pressed", String(on));
+      });
+    });
+    $("category-select").value = "all"; $("search").value = "";
+    render();
+  });
+
+  // ======================================================================
+  //  CAPTURE — commit a new row to Ideas.md via the GitHub API
+  // ======================================================================
+  const captureOverlay = $("capture-overlay");
+  let captureComplexity = "simple";
+
+  function openCapture() {
+    $("capture-msg").textContent = "";
+    $("f-name").value = ""; $("f-desc").value = ""; $("f-scope").value = "";
+    $("f-status").value = "Idea";
+    captureComplexity = "simple";
+    document.querySelectorAll("#f-complexity button").forEach(b => {
+      const on = b.dataset.value === "simple";
+      b.classList.toggle("active", on);
+      b.setAttribute("aria-pressed", String(on));
+    });
+    openModal(captureOverlay, $("f-name"));
+  }
+  function closeCapture() { closeModal(captureOverlay); }
+
+  $("add-pill").addEventListener("click", openCapture);
+  $("capture-close").addEventListener("click", closeCapture);
+  $("capture-cancel").addEventListener("click", closeCapture);
+  captureOverlay.addEventListener("click", e => { if (e.target === captureOverlay) closeCapture(); });
+  captureOverlay.addEventListener("keydown", e => trapTab(captureOverlay, e));
+  document.querySelectorAll("#f-complexity button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      captureComplexity = btn.dataset.value;
+      document.querySelectorAll("#f-complexity button").forEach(b => {
+        const on = b === btn;
+        b.classList.toggle("active", on);
+        b.setAttribute("aria-pressed", String(on));
+      });
+    });
+  });
+
+  // Escape a cell value so it can't break the markdown table (| and newlines).
+  function cleanCell(s) { return (s || "").replace(/\r?\n/g, " ").replace(/\|/g, "\\|").replace(/\s{2,}/g, " ").trim(); }
+
+  function buildRow(idea) {
+    return "| " + [
+      cleanCell(idea.name), cleanCell(idea.category),
+      cleanCell(idea.desc), cleanCell(idea.scope || ""), cleanCell(idea.status)
+    ].join(" | ") + " |";
+  }
+
+  // Insert a row after the last table row belonging to the target tier's table.
+  // We scan from the tier heading (## Simple/Medium/Complex) to the next "##"
+  // heading, and remember the last "|"-row we saw. The new row goes right after
+  // it. This is intentionally simple: it only ever appends within one tier's
+  // table and never touches anything outside that heading's block.
+  function insertRow(md, tierKey, row) {
+    const lines = md.split(/\r?\n/);
+    const heading = "## " + tierKey.charAt(0).toUpperCase() + tierKey.slice(1);
+    const start = lines.findIndex(l => l.trim().toLowerCase() === heading.toLowerCase());
+    if (start === -1) throw new Error("Couldn't find the '" + heading + "' section in Ideas.md.");
+
+    let lastRow = -1;
+    for (let i = start + 1; i < lines.length; i++) {
+      const t = lines[i].trim();
+      if (t.startsWith("##")) break;        // reached the next section — stop
+      if (t.startsWith("|")) lastRow = i;   // remember the last table row seen
+    }
+    if (lastRow === -1) throw new Error("Couldn't find the table under '" + heading + "'.");
+    lines.splice(lastRow + 1, 0, row);
+    return lines.join("\n");
+  }
+
+  const GH = "https://api.github.com";
+  function ghHeaders(token) {
+    return { "Authorization": "Bearer " + token, "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" };
+  }
+  function contentsUrl() {
+    return GH + "/repos/" + cfg(K.owner) + "/" + cfg(K.repo) + "/contents/" + FILE_PATH;
+  }
+
+  async function getFile(token) {
+    const url = contentsUrl() + "?ref=" + encodeURIComponent(cfg(K.branch)) + "&t=" + Date.now();
+    const r = await fetch(url, { headers: ghHeaders(token) });
+    if (r.status === 401) throw new Error("Token rejected (401). Check it in Settings.");
+    if (r.status === 404) throw new Error("Ideas.md not found. Check owner/repo/branch in Settings.");
+    if (!r.ok) throw new Error("Read failed (" + r.status + ").");
+    const j = await r.json();
+    return { content: b64ToUtf8(j.content), sha: j.sha };
+  }
+
+  async function putFile(token, newContent, sha, message) {
+    const body = {
+      message: message,
+      content: utf8ToB64(newContent),
+      sha: sha,
+      branch: cfg(K.branch)
+    };
+    const r = await fetch(contentsUrl(), { method: "PUT", headers: ghHeaders(token), body: JSON.stringify(body) });
+    return r;
+  }
+
+  // Commit one idea, with SHA-conflict retry (someone else changed the file).
+  async function commitIdea(idea, token) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { content, sha } = await getFile(token);
+      const row = buildRow(idea);
+      const updated = insertRow(content, idea.complexity, row);
+      const msg = 'Capture: add "' + idea.name + '" (' + idea.complexity + ') via mobile';
+      const r = await putFile(token, updated, sha, msg);
+      if (r.ok) return true;
+      if (r.status === 409) continue;         // SHA moved on — re-read and retry
+      const j = await r.json().catch(() => ({}));
+      throw new Error("Save failed (" + r.status + "): " + (j.message || "unknown"));
+    }
+    throw new Error("Save kept conflicting — try again in a moment.");
+  }
+
+  // Offline queue: stash ideas and flush when back online.
+  function queueGet() { try { return JSON.parse(localStorage.getItem(K.queue) || "[]"); } catch { return []; } }
+  function queueSet(arr) { localStorage.setItem(K.queue, JSON.stringify(arr)); }
+  function queueAdd(idea) { const q = queueGet(); q.push(idea); queueSet(q); }
+
+  async function flushQueue(silent) {
+    const token = cfg(K.token);
+    if (!token) return;
+    let q = queueGet();
+    if (q.length === 0) return;
+    if (!navigator.onLine) return;
+    let flushed = 0;
+    while (q.length) {
+      try { await commitIdea(q[0], token); q.shift(); queueSet(q); flushed++; }
+      catch (e) { if (!silent) toast(e.message, "err"); break; }
+    }
+    if (flushed > 0) { toast(flushed + " queued idea" + (flushed > 1 ? "s" : "") + " synced", "ok"); loadBoard(); }
+  }
+
+  $("capture-save").addEventListener("click", async () => {
+    const idea = {
+      name: $("f-name").value.trim(),
+      category: $("f-category").value,
+      desc: $("f-desc").value.trim(),
+      scope: $("f-scope").value.trim(),
+      status: $("f-status").value,
+      complexity: captureComplexity
+    };
+    const msgEl = $("capture-msg");
+    if (!idea.name) { msgEl.textContent = "Give the idea a name."; msgEl.className = "form-msg err"; return; }
+    if (!idea.desc) { msgEl.textContent = "Add a short description."; msgEl.className = "form-msg err"; return; }
+
+    const token = cfg(K.token);
+    const saveBtn = $("capture-save");
+
+    // Offline (or no token) → queue locally.
+    if (!navigator.onLine) {
+      queueAdd(idea);
+      msgEl.textContent = ""; closeCapture();
+      toast("Offline — idea queued, will sync when online");
+      return;
+    }
+    if (!token) {
+      queueAdd(idea);
+      msgEl.textContent = ""; closeCapture();
+      toast("Saved locally. Add a token in Settings to sync.", "err");
+      return;
+    }
+
+    saveBtn.disabled = true; saveBtn.textContent = "Saving\u2026";
+    msgEl.textContent = "Committing to Ideas.md\u2026"; msgEl.className = "form-msg";
+    try {
+      await commitIdea(idea, token);
+      closeCapture();
+      toast('Added "' + idea.name + '" to the backlog', "ok");
+      loadBoard();
+    } catch (e) {
+      msgEl.textContent = e.message; msgEl.className = "form-msg err";
+    } finally {
+      saveBtn.disabled = false; saveBtn.textContent = "Save to backlog";
+    }
+  });
+
+  // ======================================================================
+  //  SETTINGS
+  // ======================================================================
+  const settingsOverlay = $("settings-overlay");
+  function openSettings() {
+    $("s-owner").value = cfg(K.owner);
+    $("s-repo").value = cfg(K.repo);
+    $("s-branch").value = cfg(K.branch);
+    $("s-token").value = localStorage.getItem(K.token) || "";
+    $("settings-msg").textContent = "";
+    openModal(settingsOverlay, $("s-owner"));
+  }
+  function closeSettings() { closeModal(settingsOverlay); }
+  $("open-settings").addEventListener("click", openSettings);
+  $("settings-close").addEventListener("click", closeSettings);
+  settingsOverlay.addEventListener("click", e => { if (e.target === settingsOverlay) closeSettings(); });
+  settingsOverlay.addEventListener("keydown", e => trapTab(settingsOverlay, e));
+
+  $("settings-save").addEventListener("click", () => {
+    localStorage.setItem(K.owner, $("s-owner").value.trim() || DEFAULTS.owner);
+    localStorage.setItem(K.repo, $("s-repo").value.trim() || DEFAULTS.repo);
+    localStorage.setItem(K.branch, $("s-branch").value.trim() || DEFAULTS.branch);
+    const tok = $("s-token").value.trim();
+    if (tok) localStorage.setItem(K.token, tok);
+    const m = $("settings-msg"); m.textContent = "Settings saved."; m.className = "form-msg ok";
+    flushQueue(true);
+    setTimeout(closeSettings, 700);
+  });
+  $("settings-clear-token").addEventListener("click", () => {
+    localStorage.removeItem(K.token); $("s-token").value = "";
+    const m = $("settings-msg"); m.textContent = "Token removed from this device."; m.className = "form-msg ok";
+  });
+  $("s-change-pin").addEventListener("click", () => {
+    closeSettings();
+    sessionStorage.removeItem(K.unlocked);
+    showGateForCreate("Set a new PIN");
+  });
+
+  // Close only the topmost open modal on Escape (never more than one at once).
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    if (overlay.classList.contains("open")) { closeOverview(); return; }
+    if (captureOverlay.classList.contains("open")) { closeCapture(); return; }
+    if (settingsOverlay.classList.contains("open")) { closeSettings(); return; }
+  });
+
+  // ======================================================================
+  //  BOOT
+  // ======================================================================
+  function loadBoard() {
+    fetch("Ideas.md?t=" + Date.now())
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(md => {
+        ideas = parseMarkdown(md);
+        if ($("category-select").options.length <= 1) buildCategoryOptions();
+        render();
+      })
+      .catch(showError);
+  }
+
+  window.addEventListener("online", () => flushQueue(false));
+
+  // ======================================================================
+  //  THEME (light / dark) — persisted; first load follows the OS preference
+  // ======================================================================
+  function applyTheme(theme) {
+    const isLight = theme === "light";
+    document.documentElement.setAttribute("data-theme", isLight ? "light" : "dark");
+    // Swap the toggle icon (show sun in light mode, moon in dark).
+    const sun = document.querySelector("#theme-toggle .ico-sun");
+    const moon = document.querySelector("#theme-toggle .ico-moon");
+    if (sun && moon) { sun.style.display = isLight ? "block" : "none"; moon.style.display = isLight ? "none" : "block"; }
+    const btn = $("theme-toggle");
+    if (btn) {
+      btn.setAttribute("aria-pressed", String(isLight));
+      btn.title = isLight ? "Switch to dark theme" : "Switch to light theme";
+    }
+    // Keep the browser/PWA chrome colour in step with the theme.
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", isLight ? "#f4f6fb" : "#0f1420");
+  }
+
+  function initTheme() {
+    let theme = localStorage.getItem(K.theme);
+    if (!theme) {
+      // No saved choice yet — follow the OS preference.
+      theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    }
+    applyTheme(theme);
+  }
+
+  $("theme-toggle").addEventListener("click", () => {
+    const next = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+    localStorage.setItem(K.theme, next);
+    applyTheme(next);
+  });
+
+  // Register the service worker (PWA). Ignored gracefully if unsupported.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+
+  initTheme();
+  initGate();
+  loadBoard();
+  flushQueue(true);
+</script>
+</body>
+</html>
