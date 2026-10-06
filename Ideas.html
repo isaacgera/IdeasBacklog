@@ -171,6 +171,13 @@
   }
   .head-text { flex: 1; min-width: 0; }
   h1.app-title { margin: 0 0 4px; font-size: 1.5rem; }
+  .app-version {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--muted);
+    vertical-align: middle;
+    letter-spacing: 0.02em;
+  }
   .subtitle { color: var(--muted); margin: 0; font-size: 0.9rem; }
   .head-actions { display: flex; gap: 8px; flex-shrink: 0; }
   .icon-btn {
@@ -600,7 +607,7 @@
   <div id="app">
     <header>
       <div class="head-text">
-        <h1 class="app-title">Capture Ideas</h1>
+        <h1 class="app-title">Capture Ideas <span class="app-version" id="app-version"></span></h1>
         <p class="subtitle">Capture new Ideas / Browse existing ones.</p>
       </div>
       <div class="head-actions">
@@ -793,6 +800,7 @@
   };
   const DEFAULTS = { owner: "isaacgera", repo: "IdeasBacklog", branch: "main" };
   const FILE_PATH = "Ideas.md";
+  const APP_VERSION = "v1.1.0"; // single source of truth for the displayed version
 
   const tiers = [
     { key: "simple", label: "Simple", note: "Single page, no backend. A session or two." },
@@ -1677,6 +1685,10 @@
       navigator.serviceWorker.register("sw.js").catch(() => {});
     });
   }
+
+  // Show the app version next to the title (single source of truth: APP_VERSION).
+  const versionEl = $("app-version");
+  if (versionEl) versionEl.textContent = APP_VERSION;
 
   initTheme();
   initGate();
