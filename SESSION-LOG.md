@@ -299,3 +299,53 @@ Explored options for writing back to `Ideas.md` from a phone. A plain page can't
 - App version stays **v1.0.0**. SW `CACHE_NAME` versions (v1.0.1 offline-gap fix, v1.0.2 scroll-lock) are cache-busters, not app-version changes.
 - Two family agents dogfooded before push (PWA Readiness Checker + Pre-Live Testing Agent); their findings were fixed and are recorded above.
 - Live browser/GitHub-API tests couldn't run in Kiro (no browser + shell quirk); logic verified by inspection + Python simulation, visuals/scores by Isaac on Live Server, and the end-to-end commit chain by Isaac's live mobile test.
+
+---
+
+## Session 8 — 5 Oct 2026
+
+### Goal
+Add **Edit** and **Delete** to the Capture Ideas PWA (it previously only browsed and captured), fix a batch of console warnings, and tidy the Settings modal. First feature release since launch: **v1.0.0 → v1.1.0**.
+
+### What we built (all in `Ideas.html` unless noted)
+- **Sync fix (carried in first):** `loadBoard()` now always reads from the **GitHub API when a token is configured** (GitHub = source of truth), falling back to the local `Ideas.md` only in browse-only/no-token mode. Fixes the bug where mobile / Live-Server captures didn't appear after a refresh.
+- **Edit:** every idea can be edited. New helpers `replaceRow()` (find+replace a row by name+tier) and `removeRow()` (find+remove), plus `updateIdea()` which handles a **tier change** (remove from old tier, insert into new) and uses the same **SHA-conflict retry** as `commitIdea()`. The capture modal is **reused** for editing — pre-filled, title becomes "Edit idea", button becomes "Update idea"; `openCapture()` resets the editing state for new ideas.
+- **Delete:** `deleteIdea()` removes a row via the GitHub API with SHA-conflict retry; `confirmDeleteIdea()` shows a `confirm()` dialog first to guard against accidental deletes.
+- **UI iteration on how Edit/Delete are surfaced:**
+  - *v1 (rejected):* a bulk-actions dropdown + per-card checkboxes + selection counter — Isaac found it unappealing. All bulk/checkbox code removed.
+  - *v2 (final):* small **Edit (pencil)** and **Delete (trash)** SVG icon buttons in the **top-right of each card**, and the **same two icons in the overview modal header**.
+- **Mobile/touch fix:** card icons fade in on hover for desktop, but a `@media (hover: none) and (pointer: coarse)` query keeps them **always visible on touch devices** so phone users can see them without hovering.
+- **Console warnings fixed:** wrapped the PIN-gate password inputs in `<form id="pin-form">` and the Settings token input in `<form id="settings-form">` (both `onsubmit="return false;"`) to clear Chrome's "password field not in a form" warnings; added an **inline SVG favicon** (lightbulb data-URI) to clear the `favicon.ico` 404.
+- **Settings modal cleanup:** the GitHub-token help text was a prominent amber warning-style box at the top (looked like an error). Moved it **directly under the token input** and restyled as subtle muted help text (`.field-note`); removed the old `.settings-note` styling.
+- **Dev-only cache-control meta tags** were added temporarily to ease Live Server testing, then **removed before shipping** (they'd conflict with the service-worker caching in production).
+- **`sw.js`:** `CACHE_NAME` bumped `capture-ideas-v1.0.2` → **`capture-ideas-v1.1.0`** so the installed PWA picks up the update.
+
+### Key decisions
+- **Per-card icons over bulk-select.** The dropdown + checkboxes approach was dropped in favour of inline pencil/trash icons — cleaner and consistent between card and modal.
+- **Reuse the capture modal for editing** rather than building a second form — one code path, less drift.
+- **Genuine feature bump v1.0.0 → v1.1.0** (Edit + Delete are new capability), not just a cache-buster like the v1.0.1/v1.0.2 SW bumps.
+- **Delete always confirms** — a destructive action on the shared source-of-truth backlog.
+
+### Verification
+- Isaac tested **Edit/Delete on Live Server** — works.
+- Sync fix tested on **Live Server, GitHub, and the mobile app** — works.
+- **Still pending (the definitive check):** the real **installed iPhone PWA** test of v1.1.0 — close/reopen the home-screen app so the `v1.1.0` service worker takes over, then confirm the icons show without hover and Edit/Delete sync end to end.
+
+### Shipping steps done
+- Code committed and pushed to the public **`IdeasBacklog`** repo (GitHub Pages).
+- Push initially failed (**non-fast-forward**: local was behind because the app had committed test captures straight to GitHub's `Ideas.md`). Resolved with **`git pull origin main`** — a **clean merge** (local changes were to `Ideas.html`/`sw.js`, remote to `Ideas.md`, no conflict) — then pushed. `git status` confirmed "up to date with origin/main".
+
+### Notes
+- **Terminal unusable this session** (Windows cmd + the OneDrive `- BT Plc` path: the shell stripped the drive letter and got stuck in a stale working directory, mangling every command — including `git -C` and background processes). All git (pull/commit/push) was run **manually by Isaac** in his own terminal; code edits were done via file tools and are on disk.
+- **`GitHub_Token.jpg`** sits untracked in the `Ideas/` folder (a token screenshot). It must **never** be committed to the public repo — Isaac is removing it.
+- **Backlog status held.** The `Ideas.md` row is still `Built (Capture Ideas v1.0.0)` from Session 7. Per the backlog-sync rule, it stays **code-complete / awaiting sign-off** and is **not** flipped until Isaac confirms v1.1.0 on the real iPhone PWA — then it becomes `Built (Capture Ideas v1.1.0)`.
+- **`userguide.html` is stale** (reads v1.0.0, documents only browse + capture). Updated this session to cover Edit/Delete and v1.1.0.
+
+### Next session
+- Isaac confirms **v1.1.0 on the real iPhone PWA**; once confirmed, flip the `Ideas.md` row to **`Built (Capture Ideas v1.1.0)`**.
+- Confirm `GitHub_Token.jpg` is out of the repo folder (and consider a `.gitignore` entry).
+
+### Post-sign-off additions (same session)
+- **Isaac verified v1.1.0** on the mobile PWA, desktop (Live Server) and GitHub Pages — all good. Per the backlog-sync rule, flipped the `Ideas.md` row **`Built (Capture Ideas v1.0.0)` → `Built (Capture Ideas v1.1.0)`** and refreshed its scope to mention edit/delete.
+- **Version now displayed in-app** (Isaac's observation that it wasn't shown anywhere): a small muted **`v1.1.0`** sits next to the "Capture Ideas" title, driven by a single `APP_VERSION` constant (single source of truth). Display-only, so no app-version change beyond v1.1.0 — but it edits the shipped page, so **SW `CACHE_NAME` bumped `v1.1.0` → `v1.1.1`** so the installed PWA picks it up.
+- **To deploy:** commit + push `Ideas.html` and `sw.js` again (manual git, same as before), then close/reopen the iPhone PWA to pull the `v1.1.1` worker.

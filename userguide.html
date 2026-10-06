@@ -37,7 +37,7 @@
 </head>
 <body>
   <h1>Capture Ideas</h1>
-  <div class="sub">User Guide - v1.0.0</div>
+  <div class="sub">User Guide - v1.1.0</div>
   <span class="tag">BUILT</span>
 
   <div class="card">
@@ -78,6 +78,25 @@
       <li>Tap <strong>Save to backlog</strong>. You'll see a confirmation, and the new card appears in its tier.</li>
     </ol>
     <p class="hint">Behind the scenes this adds a correctly-formatted row to the right tier table in <code>Ideas.md</code> and commits it. Pipe characters in your text are escaped automatically so the table can't break.</p>
+  </div>
+
+  <div class="card">
+    <h2>Editing and deleting an idea <em>(new in v1.1.0)</em></h2>
+    <p>Every idea now has two small icons for quick changes. On a laptop they appear in the <strong>top-right corner of a card when you hover over it</strong>; on a phone or tablet they're <strong>always visible</strong>. The same two icons also sit in the header when you open an idea's overview.</p>
+    <h3>Edit <em>(pencil icon)</em></h3>
+    <ol>
+      <li>Tap the <strong>pencil</strong> on the card (or in the open overview).</li>
+      <li>The form opens <strong>pre-filled</strong> with that idea's details; the title reads <em>Edit idea</em>.</li>
+      <li>Change whatever you need - name, complexity, category, description, scope or status.</li>
+      <li>Tap <strong>Update idea</strong>. The matching row in <code>Ideas.md</code> is updated in place. If you change the complexity, the idea moves to the correct tier automatically.</li>
+    </ol>
+    <h3>Delete <em>(trash icon)</em></h3>
+    <ol>
+      <li>Tap the <strong>trash</strong> icon on the card (or in the open overview).</li>
+      <li>A <strong>confirmation</strong> appears - this guards against accidental deletes.</li>
+      <li>Confirm, and the idea's row is removed from <code>Ideas.md</code> and the board refreshes.</li>
+    </ol>
+    <div class="warn">Editing and deleting <strong>write to the backlog</strong>, so they need a GitHub token set in Settings (see below) and an internet connection. Browsing still works without one. Both actions use the same safe retry as capturing, so a laptop edit and a phone edit can't silently clobber each other.</div>
   </div>
 
   <div class="card">

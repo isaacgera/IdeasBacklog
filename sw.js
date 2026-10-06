@@ -8,7 +8,7 @@
  *
  * Bump CACHE_NAME whenever the shell files change so clients pick up the update.
  */
-const CACHE_NAME = "capture-ideas-v1.1.0";
+const CACHE_NAME = "capture-ideas-v1.1.1";
 
 // Stable cache key for the backlog file (the app fetches it with a "?t="
 // cache-buster; we normalise to this key so offline lookups still hit).
