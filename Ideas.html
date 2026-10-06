@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="description" content="Capture Ideas — a mobile-first PWA to browse the app ideas backlog by complexity, status and category, and capture new ideas on the go, syncing to Ideas.md." />
 <meta name="theme-color" content="#0f1420" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💡</text></svg>" />
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
 <title>Capture Ideas</title>
@@ -286,13 +287,59 @@
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 14px 16px;
+    padding: 14px 16px 14px 16px;
     transition: transform 0.12s, background 0.12s;
     cursor: pointer;
+    position: relative;
   }
   .card:hover { background: var(--card-hover); transform: translateY(-2px); }
   .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  .card h3 { margin: 0 0 6px; font-size: 1rem; }
+  
+  .card-actions {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 2;
+  }
+  .card:hover .card-actions { opacity: 1; }
+  
+  /* Always show icons on touch devices (no hover) */
+  @media (hover: none) and (pointer: coarse) {
+    .card-actions { opacity: 1; }
+  }
+  
+  .card-action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+  .card-action-btn:hover {
+    background: var(--card-hover);
+    border-color: var(--accent);
+    color: var(--text);
+  }
+  .card-action-btn.delete:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .card-action-btn svg {
+    width: 14px;
+    height: 14px;
+  }
+  
+  .card h3 { margin: 0 0 6px; font-size: 1rem; padding-right: 60px; }
   .card p { margin: 0 0 12px; color: var(--muted); font-size: 0.85rem; }
   .tags { display: flex; gap: 6px; flex-wrap: wrap; }
   .tag {
@@ -422,17 +469,20 @@
   }
   .seg-choice button.active { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; font-weight: 600; }
 
-  .settings-note {
-    background: rgba(224,169,74,0.1);
-    border: 1px solid var(--medium);
-    border-radius: var(--radius);
-    padding: 12px 14px;
-    font-size: 0.82rem;
-    color: var(--text);
-    line-height: 1.55;
-    margin: 0 18px;
+  .field-note {
+    margin: 8px 0 0 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--muted);
   }
-  .settings-note code { background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 4px; }
+  .field-note code {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.78rem;
+    color: var(--text);
+  }
 
   .empty { color: var(--muted); font-size: 0.9rem; padding: 20px 0; }
   .error {
@@ -529,12 +579,14 @@
       <div class="gate-logo" aria-hidden="true">&#128161;</div>
       <h1>Capture Ideas</h1>
       <p class="sub" id="gate-sub">Enter your PIN to continue</p>
-      <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6"
-             class="pin-input" id="pin-input" autocomplete="off"
-             aria-label="PIN" placeholder="&bull;&bull;&bull;&bull;" />
-      <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6"
-             class="pin-input" id="pin-confirm" autocomplete="off"
-             aria-label="Confirm PIN" placeholder="Confirm PIN" style="display:none;margin-top:10px;" />
+      <form id="pin-form" onsubmit="return false;">
+        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+               class="pin-input" id="pin-input" autocomplete="off"
+               aria-label="PIN" placeholder="&bull;&bull;&bull;&bull;" />
+        <input type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6"
+               class="pin-input" id="pin-confirm" autocomplete="off"
+               aria-label="Confirm PIN" placeholder="Confirm PIN" style="display:none;margin-top:10px;" />
+      </form>
       <p class="gate-msg" id="gate-msg" role="status" aria-live="polite"></p>
       <div class="gate-actions">
         <button class="btn primary" id="gate-go">Unlock</button>
@@ -685,35 +737,35 @@
         <button class="modal-close" id="settings-close" aria-label="Close">&times;</button>
       </div>
       <div class="modal-body">
-        <div class="form">
-          <p class="settings-note">
-            To <strong>save ideas from this device</strong>, paste a GitHub <strong>fine-grained token</strong>
-            scoped to only the <code>IdeasBacklog</code> repo with <strong>Contents: Read &amp; write</strong>.
-            It is stored only on this device and never committed. Browsing works without a token.
-          </p>
-          <div class="two">
-            <div class="row">
-              <label for="s-owner">GitHub owner</label>
-              <input type="text" id="s-owner" placeholder="isaacgera" autocomplete="off" />
+        <form id="settings-form" onsubmit="return false;">
+          <div class="form">
+            <div class="two">
+              <div class="row">
+                <label for="s-owner">GitHub owner</label>
+                <input type="text" id="s-owner" placeholder="isaacgera" autocomplete="off" />
+              </div>
+              <div class="row">
+                <label for="s-repo">Repository</label>
+                <input type="text" id="s-repo" placeholder="IdeasBacklog" autocomplete="off" />
+              </div>
             </div>
             <div class="row">
-              <label for="s-repo">Repository</label>
-              <input type="text" id="s-repo" placeholder="IdeasBacklog" autocomplete="off" />
+              <label for="s-branch">Branch</label>
+              <input type="text" id="s-branch" placeholder="main" autocomplete="off" />
+            </div>
+            <div class="row">
+              <label for="s-token">GitHub token <span class="hint">(write access; stays on this device)</span></label>
+              <input type="password" id="s-token" placeholder="github_pat_&hellip;" autocomplete="off" />
+              <p class="field-note">
+                To save ideas from this device, paste a GitHub <strong>fine-grained token</strong> scoped to the <code>IdeasBacklog</code> repo with <strong>Contents: Read &amp; write</strong>. Stored only on this device. Browsing works without a token.
+              </p>
+            </div>
+            <div class="row">
+              <label>Change PIN</label>
+              <button class="btn ghost" id="s-change-pin" type="button">Set a new PIN&hellip;</button>
             </div>
           </div>
-          <div class="row">
-            <label for="s-branch">Branch</label>
-            <input type="text" id="s-branch" placeholder="main" autocomplete="off" />
-          </div>
-          <div class="row">
-            <label for="s-token">GitHub token <span class="hint">(write access; stays on this device)</span></label>
-            <input type="password" id="s-token" placeholder="github_pat_&hellip;" autocomplete="off" />
-          </div>
-          <div class="row">
-            <label>Change PIN</label>
-            <button class="btn ghost" id="s-change-pin" type="button">Set a new PIN&hellip;</button>
-          </div>
-        </div>
+        </form>
       </div>
       <p class="form-msg" id="settings-msg" role="status" aria-live="polite"></p>
       <div class="form-actions">
@@ -1022,7 +1074,16 @@
         card.setAttribute("role", "button");
         card.setAttribute("aria-label", "Open overview for " + i.name);
         const versionTag = i.version ? '<span class="tag version"></span>' : '';
+        
         card.innerHTML =
+          '<div class="card-actions">' +
+            '<button class="card-action-btn edit" aria-label="Edit ' + i.name + '" title="Edit">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>' +
+            '</button>' +
+            '<button class="card-action-btn delete" aria-label="Delete ' + i.name + '" title="Delete">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>' +
+            '</button>' +
+          '</div>' +
           '<h3></h3><p></p>' +
           '<div class="tags">' +
             '<span class="tag ' + i.complexity + '">' + tier.label + '</span>' +
@@ -1030,11 +1091,25 @@
             '<span class="tag status ' + statusClass(i.status) + '"></span>' +
             versionTag +
           '</div><div class="open-hint">Open overview &rarr;</div>';
+        
         card.querySelector("h3").textContent = i.name;
         card.querySelector("p").textContent = i.desc;
         card.querySelector(".tag.category").textContent = i.category || "Uncategorised";
         card.querySelector(".tag.status").textContent = i.status;
         if (i.version) card.querySelector(".tag.version").textContent = i.version;
+        
+        // Wire up edit button
+        card.querySelector(".card-action-btn.edit").addEventListener("click", (e) => {
+          e.stopPropagation();
+          editIdea(i);
+        });
+        
+        // Wire up delete button
+        card.querySelector(".card-action-btn.delete").addEventListener("click", (e) => {
+          e.stopPropagation();
+          confirmDeleteIdea(i);
+        });
+        
         card.addEventListener("click", () => openOverview(i));
         card.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openOverview(i); } });
         grid.appendChild(card);
@@ -1063,6 +1138,37 @@
     const path = overviewPath(i);
     $("modal-title").textContent = i.name;
     modalBody.innerHTML = "";
+    
+    // Add Edit and Delete icon buttons to modal header
+    const existingActions = document.querySelector("#overlay .modal-head .overview-actions");
+    if (existingActions) existingActions.remove();
+    
+    const actions = document.createElement("div");
+    actions.className = "overview-actions";
+    actions.style.cssText = "display:flex;gap:6px;margin-left:auto;";
+    
+    const editBtn = document.createElement("button");
+    editBtn.className = "icon-btn";
+    editBtn.setAttribute("aria-label", "Edit " + i.name);
+    editBtn.title = "Edit";
+    editBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+    editBtn.addEventListener("click", () => { closeOverview(); editIdea(i); });
+    
+    const delBtn = document.createElement("button");
+    delBtn.className = "icon-btn delete-btn";
+    delBtn.setAttribute("aria-label", "Delete " + i.name);
+    delBtn.title = "Delete";
+    delBtn.style.color = "var(--danger)";
+    delBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>';
+    delBtn.addEventListener("click", () => { closeOverview(); confirmDeleteIdea(i); });
+    
+    actions.appendChild(editBtn);
+    actions.appendChild(delBtn);
+    
+    const modalHead = document.querySelector("#overlay .modal-head");
+    const closeBtn = document.querySelector("#modal-close");
+    modalHead.insertBefore(actions, closeBtn);
+    
     fetch(path)
       .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
       .then(() => {
@@ -1124,7 +1230,14 @@
   let captureComplexity = "simple";
 
   function openCapture() {
+    // Reset editing state (this is a new idea, not an edit)
+    window.captureEditingIdea = undefined;
+    
+    $("capture-title").textContent = "New idea";
+    $("capture-save").textContent = "Save to backlog";
     $("capture-msg").textContent = "";
+    $("capture-msg").className = "form-msg";
+    
     $("f-name").value = ""; $("f-desc").value = ""; $("f-scope").value = "";
     $("f-status").value = "Idea";
     captureComplexity = "simple";
@@ -1230,6 +1343,88 @@
     throw new Error("Save kept conflicting — try again in a moment.");
   }
 
+  // Find and replace a row in the markdown by matching name + complexity tier
+  function replaceRow(md, oldIdea, newRow) {
+    const lines = md.split(/\r?\n/);
+    const heading = "## " + oldIdea.complexity.charAt(0).toUpperCase() + oldIdea.complexity.slice(1);
+    const start = lines.findIndex(l => l.trim().toLowerCase() === heading.toLowerCase());
+    if (start === -1) throw new Error("Couldn't find the '" + heading + "' section.");
+
+    for (let i = start + 1; i < lines.length; i++) {
+      const t = lines[i].trim();
+      if (t.startsWith("##")) break;
+      if (!t.startsWith("|")) continue;
+      const cells = t.split("|").slice(1, -1).map(c => c.trim());
+      if (cells.length < 5) continue;
+      if (cells[0] === oldIdea.name) {
+        lines[i] = newRow;
+        return lines.join("\n");
+      }
+    }
+    throw new Error("Couldn't find the row for '" + oldIdea.name + "' to update.");
+  }
+
+  // Find and remove a row from the markdown
+  function removeRow(md, idea) {
+    const lines = md.split(/\r?\n/);
+    const heading = "## " + idea.complexity.charAt(0).toUpperCase() + idea.complexity.slice(1);
+    const start = lines.findIndex(l => l.trim().toLowerCase() === heading.toLowerCase());
+    if (start === -1) throw new Error("Couldn't find the '" + heading + "' section.");
+
+    for (let i = start + 1; i < lines.length; i++) {
+      const t = lines[i].trim();
+      if (t.startsWith("##")) break;
+      if (!t.startsWith("|")) continue;
+      const cells = t.split("|").slice(1, -1).map(c => c.trim());
+      if (cells.length < 5) continue;
+      if (cells[0] === idea.name) {
+        lines.splice(i, 1);
+        return lines.join("\n");
+      }
+    }
+    throw new Error("Couldn't find the row for '" + idea.name + "' to delete.");
+  }
+
+  // Edit an existing idea
+  async function updateIdea(oldIdea, newIdea, token) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { content, sha } = await getFile(token);
+      const row = buildRow(newIdea);
+      
+      // If tier changed, remove from old and add to new
+      let updated;
+      if (oldIdea.complexity !== newIdea.complexity) {
+        const removed = removeRow(content, oldIdea);
+        updated = insertRow(removed, newIdea.complexity, row);
+      } else {
+        updated = replaceRow(content, oldIdea, row);
+      }
+      
+      const msg = 'Update: edit "' + newIdea.name + '" via mobile';
+      const r = await putFile(token, updated, sha, msg);
+      if (r.ok) return true;
+      if (r.status === 409) continue;
+      const j = await r.json().catch(() => ({}));
+      throw new Error("Update failed (" + r.status + "): " + (j.message || "unknown"));
+    }
+    throw new Error("Update kept conflicting — try again in a moment.");
+  }
+
+  // Delete an idea
+  async function deleteIdea(idea, token) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { content, sha } = await getFile(token);
+      const updated = removeRow(content, idea);
+      const msg = 'Delete: remove "' + idea.name + '" via mobile';
+      const r = await putFile(token, updated, sha, msg);
+      if (r.ok) return true;
+      if (r.status === 409) continue;
+      const j = await r.json().catch(() => ({}));
+      throw new Error("Delete failed (" + r.status + "): " + (j.message || "unknown"));
+    }
+    throw new Error("Delete kept conflicting — try again in a moment.");
+  }
+
   // Offline queue: stash ideas and flush when back online.
   function queueGet() { try { return JSON.parse(localStorage.getItem(K.queue) || "[]"); } catch { return []; } }
   function queueSet(arr) { localStorage.setItem(K.queue, JSON.stringify(arr)); }
@@ -1264,34 +1459,111 @@
 
     const token = cfg(K.token);
     const saveBtn = $("capture-save");
+    
+    // Check if this is an edit (captureEditingIdea is set)
+    const isEdit = window.captureEditingIdea !== undefined;
+    const oldIdea = window.captureEditingIdea;
 
     // Offline (or no token) → queue locally.
     if (!navigator.onLine) {
+      if (isEdit) {
+        msgEl.textContent = "Cannot edit while offline."; msgEl.className = "form-msg err";
+        return;
+      }
       queueAdd(idea);
       msgEl.textContent = ""; closeCapture();
       toast("Offline — idea queued, will sync when online");
       return;
     }
     if (!token) {
+      if (isEdit) {
+        msgEl.textContent = "Add a token in Settings to edit ideas."; msgEl.className = "form-msg err";
+        return;
+      }
       queueAdd(idea);
       msgEl.textContent = ""; closeCapture();
       toast("Saved locally. Add a token in Settings to sync.", "err");
       return;
     }
 
-    saveBtn.disabled = true; saveBtn.textContent = "Saving\u2026";
-    msgEl.textContent = "Committing to Ideas.md\u2026"; msgEl.className = "form-msg";
+    saveBtn.disabled = true; 
+    saveBtn.textContent = isEdit ? "Updating\u2026" : "Saving\u2026";
+    msgEl.textContent = isEdit ? "Updating Ideas.md\u2026" : "Committing to Ideas.md\u2026"; 
+    msgEl.className = "form-msg";
+    
     try {
-      await commitIdea(idea, token);
-      closeCapture();
-      toast('Added "' + idea.name + '" to the backlog', "ok");
+      if (isEdit) {
+        await updateIdea(oldIdea, idea, token);
+        closeCapture();
+        toast('Updated "' + idea.name + '"', "ok");
+        window.captureEditingIdea = undefined;
+      } else {
+        await commitIdea(idea, token);
+        closeCapture();
+        toast('Added "' + idea.name + '" to the backlog', "ok");
+      }
       loadBoard(); // Reload board (automatically from GitHub since token exists)
     } catch (e) {
       msgEl.textContent = e.message; msgEl.className = "form-msg err";
     } finally {
-      saveBtn.disabled = false; saveBtn.textContent = "Save to backlog";
+      saveBtn.disabled = false; 
+      saveBtn.textContent = isEdit ? "Update idea" : "Save to backlog";
     }
   });
+
+  // Open capture modal pre-filled for editing
+  function editIdea(idea) {
+    window.captureEditingIdea = idea; // Store original for comparison
+    
+    $("f-name").value = idea.name;
+    $("f-category").value = idea.category;
+    $("f-desc").value = idea.desc;
+    $("f-scope").value = idea.scope || "";
+    $("f-status").value = idea.status;
+    
+    // Set complexity
+    captureComplexity = idea.complexity;
+    const segment = document.querySelector("#f-complexity");
+    segment.querySelectorAll("button").forEach(btn => {
+      const on = btn.dataset.value === idea.complexity;
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", String(on));
+    });
+    
+    // Update modal title and button text
+    $("capture-title").textContent = "Edit idea";
+    $("capture-save").textContent = "Update idea";
+    $("capture-msg").textContent = "";
+    $("capture-msg").className = "form-msg";
+    
+    openModal(captureOverlay, $("f-name"));
+  }
+
+  // Confirm before deleting
+  function confirmDeleteIdea(idea) {
+    const token = cfg(K.token);
+    if (!token) {
+      toast("Add a token in Settings to delete ideas.", "err");
+      return;
+    }
+    if (!navigator.onLine) {
+      toast("Cannot delete while offline.", "err");
+      return;
+    }
+    
+    const confirmed = confirm('Delete "' + idea.name + '" from the backlog?\n\nThis will remove it from Ideas.md on GitHub.');
+    if (!confirmed) return;
+    
+    toast("Deleting\u2026");
+    deleteIdea(idea, token)
+      .then(() => {
+        toast('Deleted "' + idea.name + '"', "ok");
+        loadBoard();
+      })
+      .catch(e => {
+        toast("Delete failed: " + e.message, "err");
+      });
+  }
 
   // ======================================================================
   //  SETTINGS
