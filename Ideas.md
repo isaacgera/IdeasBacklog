@@ -40,6 +40,7 @@ A running list of app ideas grouped by complexity. Use this to pick up existing 
 | Sample | Utility | Sample |  | Idea |
 | Sample | Utility | Sample |  | Idea |
 | Sample | Utility | Samplee |  | Idea |
+| Event Planner | Home | A simple app to plan the event, capture details on the plan(date, venue, occasion), invitation list, to do / buy lists, food menu/order, Gifts |  | Idea |
 
 ## Medium
 
