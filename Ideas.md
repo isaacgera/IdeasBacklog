@@ -35,7 +35,6 @@ A running list of app ideas grouped by complexity. Use this to pick up existing 
 | Focus Soundboard | Productivity | Ambient focus-sound mixer: layer rain, café & noise loops into saved "scenes" with per-track volume. Local-first PWA. | Pick/blend 4-6 built-in loops, per-track volume + master, save/load named scenes, optional 25/5 Pomodoro timer with a gentle chime; offline via cached audio; no accounts, no tracking. | Idea |
 | Capture Ideas | Utility | Mobile-first, installable PWA layer over the Ideas backlog: browse the whole board (filter by tier/status/category, search) and capture new ideas on the go, committing them straight to `Ideas.md` via the GitHub API. Same `Ideas.html` made responsive; hosted on GitHub Pages from the public `IdeasBacklog` repo. [overview](overview.html) | Responsive board (stacked toolbar, single-column cards, big tap targets) + PWA (manifest, service worker, offline browse); in-app PIN gate (SHA-256 hash, no plaintext); capture form → new table row committed to `Ideas.md` via GitHub REST API with SHA-conflict retry; settings for PIN + scoped GitHub token + owner/repo (nothing hardcoded/committed). Public repo, so PIN is a soft UI gate, not data security. | Built (Capture Ideas v1.0.0) |
 | Event Planner | Home | A simple app to assist with event planning - carrying the details like occasion, venue, date, plan, guest lists, Things to do/buy, Food menu/order, Countdown to date/event. | Countdown timer, to do, food items | Idea |
-| 124 | Utility | 12121 |  | Idea |
 
 ## Medium
 
