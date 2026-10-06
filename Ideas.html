@@ -1285,7 +1285,7 @@
       await commitIdea(idea, token);
       closeCapture();
       toast('Added "' + idea.name + '" to the backlog', "ok");
-      loadBoard();
+      loadBoard(); // Reload board (automatically from GitHub since token exists)
     } catch (e) {
       msgEl.textContent = e.message; msgEl.className = "form-msg err";
     } finally {
@@ -1343,8 +1343,17 @@
   //  BOOT
   // ======================================================================
   function loadBoard() {
-    fetch("Ideas.md?t=" + Date.now())
-      .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+    const token = cfg(K.token);
+    // If we have a token, always fetch from GitHub (live data, stays in sync).
+    // Otherwise fetch the local file (browse-only mode, no token configured).
+    const source = token
+      ? fetch(contentsUrl() + "?ref=" + encodeURIComponent(cfg(K.branch)) + "&t=" + Date.now(), { headers: ghHeaders(token) })
+          .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+          .then(j => b64ToUtf8(j.content))
+      : fetch("Ideas.md?t=" + Date.now())
+          .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); });
+
+    source
       .then(md => {
         ideas = parseMarkdown(md);
         if ($("category-select").options.length <= 1) buildCategoryOptions();
