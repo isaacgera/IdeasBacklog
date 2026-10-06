@@ -36,6 +36,7 @@ A running list of app ideas grouped by complexity. Use this to pick up existing 
 | Capture Ideas | Utility | Mobile-first, installable PWA layer over the Ideas backlog: browse the whole board (filter by tier/status/category, search) and capture new ideas on the go, committing them straight to `Ideas.md` via the GitHub API. Same `Ideas.html` made responsive; hosted on GitHub Pages from the public `IdeasBacklog` repo. [overview](overview.html) | Responsive board (stacked toolbar, single-column cards, big tap targets) + PWA (manifest, service worker, offline browse); in-app PIN gate (SHA-256 hash, no plaintext); capture form → new table row committed to `Ideas.md` via GitHub REST API with SHA-conflict retry; settings for PIN + scoped GitHub token + owner/repo (nothing hardcoded/committed). Public repo, so PIN is a soft UI gate, not data security. | Built (Capture Ideas v1.0.0) |
 | Sample | Utility | TEst |  | Idea |
 | Sample TEst | Utility | Sample |  | Idea |
+| Sample | Utility | Sample |  | Idea |
 
 ## Medium
 
